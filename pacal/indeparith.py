@@ -7,7 +7,7 @@ from functools import partial
 import bisect
 import operator
 
-from numpy import multiply, add, divide
+from numpy import multiply, add, divide, inf
 from numpy import unique, isnan, isscalar, size, flatnonzero
 from numpy import sign, isinf, isfinite
 from numpy import minimum, maximum, pi
