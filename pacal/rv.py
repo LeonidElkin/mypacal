@@ -330,6 +330,7 @@ class TruncRV(OpRV):
 class CensoredRV(OpRV):
     def __init__(self, d, a, b, sym = None):
         super(CensoredRV, self).__init__([d], sym = sym)
+        self.a, self.b = d.range()
         self.d = d
         self.censor_a = a
         self.censor_b = b
