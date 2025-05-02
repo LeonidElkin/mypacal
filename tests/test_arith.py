@@ -1,11 +1,9 @@
 from __future__ import print_function
 
-from scipy.integrate import quad
-
-from numpy import cos, arange, pi
 import unittest
 from scipy.stats import *
 from pacal import *
+from builtins import abs
 
 import time
 import matplotlib.pyplot as plt

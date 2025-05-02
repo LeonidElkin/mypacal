@@ -25,6 +25,7 @@ from numpy import pi, isnan, unique, diff
 from numpy import hstack, maximum, isfinite
 from numpy import isinf, log, exp, logspace, nan
 from numpy import finfo, double, isscalar
+from numpy.fft import fft, ifft
 from pylab import plot, loglog, show, semilogx, sqrt, figure
 from pylab import real, ones_like
 from numpy import zeros, sort

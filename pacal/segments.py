@@ -14,7 +14,7 @@ from .utils import epsunique, estimateDegreeOfPole, testPole, findinv, findinv_m
 from . import params
 
 from numpy import linspace, multiply, add, divide, size
-from numpy import unique, union1d, isnan, isscalar, diff, size
+from numpy import unique, union1d, isnan, isscalar, diff, size, nan
 from numpy import inf, sign, isinf, isfinite, exp, isneginf, isposinf
 from numpy import logspace, sqrt, minimum, maximum, pi, mean, log10
 from numpy import append, nan_to_num, select

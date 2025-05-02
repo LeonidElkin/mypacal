@@ -818,7 +818,7 @@ class LogLogisticDistr(Distr):
           - 2*np.logaddexp(self.log_s_pow_k, self.k*lx)
         
     def pdf(self, x):
-        y = zeros_like(asfarray(x))
+        y = zeros_like(asarray(x, dtype=float))
         mask = (x >= 0)
         # pdf form from www.randomservices.org
         #y[mask] = self.k * self.s_pow_k * x[mask]**(self.k-1) \
