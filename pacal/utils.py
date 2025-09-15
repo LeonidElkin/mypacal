@@ -20,29 +20,20 @@ import types
 from functools import partial
 import multiprocessing
 
-from numpy import array, arange, empty, cos, sin, abs
+from numpy import array, arange, empty, cos, sin, abs, inf
 from numpy import pi, isnan, unique, diff
 from numpy import hstack, maximum, isfinite
-from numpy import isinf, log, exp, logspace, Inf, nan
-from numpy import finfo, double, isscalar, asfarray
+from numpy import isinf, log, exp, logspace, nan
+from numpy import finfo, double, isscalar
+from numpy.fft import fft, ifft
 from pylab import plot, loglog, show, semilogx, sqrt, figure
 from pylab import real, ones_like
 from numpy import zeros, sort
 from numpy.linalg import eigvals
-from numpy.fft import fft, ifft
 from numpy import real, concatenate, linspace, argmin
-
-
-#from scipy.fftpack.basic import fft
 from scipy.optimize import fmin_cg,fmin, fmin_tnc
 
 from . import params
-
-# safe infinity
-try:
-    from numpy import Inf
-except:
-    Inf = float('inf')
 
 # function wrappers for avoiding lambdas
 
@@ -74,7 +65,6 @@ def combine_interpolation_nodes_fast(oldXs, oldYs, newXs, newYs):
     return combinedXs, combinedYs
 def combine_interpolation_nodes_fast_vector(oldXs, oldYs, newXs, newYs):
     """Combine old and new interpolation nodes in sorted order.
-
     Allow Ys to be an array.  Combining is done on last axis."""
     newsize = len(oldXs) + len(newXs)
     new_y_shape = oldYs.shape[:-1] + (newsize,)
@@ -172,12 +162,9 @@ def chebt2(f):
     n = len(f)
     oncircle = concatenate((f[-1::-1], f[1:-1]))
     fftcoef = real(fft(oncircle))/(2*n-2)
-    #print n, len(fftcoef)
-    #print fftcoef[n-1:]
-    #print fftcoef[n-1:0:-1]
     fftcoef[n-1:0:-1] += fftcoef[n-1:] # z+conj(z)
     return fftcoef[n-1::-1]
-    #return c
+
 def ichebt2(c):
     """inverse chebyshev transformation, values of function in Chebyshev
     nodes of the second kind, see chebfun for details"""
@@ -240,8 +227,6 @@ def estimateDegreeOfPole(f, x, pos = True, fromTo = None, N = 10, deriv = False,
     else:
         lx = x - ex
     y = abs(f(lx))
-    #if deriv:
-    #    y -= min(y[isfinite(y)])
     yi = log(y)
     xi = log(abs(ex))
     ind = isfinite(yi)
@@ -293,7 +278,6 @@ def testPole(f, x, pos = True, pole_eps = None, deriv = None, debug_info = None,
     deg = estimateDegreeOfPole(f, x, pos, deriv = deriv, **kwargs)
     if deriv:
         if (abs(deg) >= abs(pole_eps) and deg <= 1 - abs(pole_eps)) or (deg >= 1 + abs(pole_eps) and deg <= 2 - abs(pole_eps)) or deg>2:
-        #if (deg >= abs(pole_eps) and deg <= 1 - abs(pole_eps)) or (deg >= 1 + abs(pole_eps) and deg <= 2 - abs(pole_eps))or (deg >= 2 + abs(pole_eps) and deg <= 3 - abs(pole_eps)):
             pole = True
         else:
             pole = False
@@ -382,7 +366,7 @@ def stepfun(x, shift = 0.0):
             return 1.0
     else:
         mask = (x >= 0.0)
-        y = zeros_like(asfarray(x))
+        y = zeros_like(asarray(x, dtype=float))
         y[mask] = 1.0
         return y
 
@@ -484,7 +468,7 @@ def estimateTailExponent(f, fromTo = None, N =300, deriv = False, debug_plot = F
     if len(yi) > 1:
         ex = ri[-1]/di[-1]
         if ex>50:
-            return Inf
+            return inf
         else:
             return ex
     else:

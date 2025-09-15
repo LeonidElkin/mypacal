@@ -10,6 +10,7 @@ class TestLogLogistic:
         test_ks = [0.2, 0.5, 0.99, 1, 1.5, 2, 2.5, 5, 10, 100]
         self.distrs = [LogLogisticDistr(k) for k in test_ks]
     def test_int_error(self):
+        self.setup()
         for d in self.distrs:
             assert np.abs(d.int_error() <= 2.5e-15)
     def theor_moment(self, d, i):
@@ -18,6 +19,7 @@ class TestLogLogistic:
             return np.inf
         return s**i / np.sinc(i/k)
     def test_moments(self):
+        self.setup()
         for d in self.distrs:
             for i in range(1, 4):
                 m = d.moment(i, 0)

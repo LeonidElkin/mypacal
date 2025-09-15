@@ -9,15 +9,12 @@ from functools import partial
 
 import numpy
 from numpy import array, zeros_like, ones_like, unique, concatenate, isscalar, isfinite
-from numpy import sqrt, pi, arctan, tan, asfarray, asarray, zeros, Inf, NaN
-#from numpy import sin, cos, tan,
+from numpy import sqrt, pi, arctan, tan, asarray, zeros, inf, nan
 from numpy import arcsin, arccos
 from numpy.random import uniform
 from numpy import minimum, maximum
 from numpy import hstack, cumsum, searchsorted
 from numpy import histogram
-
-from pacal.utils import Inf
 
 from pylab import bar, plot
 
@@ -124,6 +121,8 @@ class Distr(RV):
             invcdf  = self.get_piecewise_cdf().invfun(use_interpolated=use_interpolated, rangeY=None)
         return invcdf
 
+    def ppf (self, p):
+        return self.get_piecewise_invcdf()(p)
     def pdf(self,x):
         return self.get_piecewise_pdf()(x)
     def cdf(self,x):
@@ -166,12 +165,12 @@ class Distr(RV):
         if not self.var() == 0:
             return self.moment(3, self.mean()) / self.var()**1.5
         else:
-            return NaN
+            return nan
     def kurtosis(self):
         if not self.var() == 0:
             return self.moment(4, self.mean()) / self.var()**2
         else:
-            return NaN
+            return nan
     def mgf(self):
         return PiecewiseFunction(fun=partial(_mgf_fun, self), breakPoints=self.get_piecewise_pdf().getBreaks())
     def cf(self):
@@ -402,6 +401,10 @@ class Distr(RV):
                 m = self.mean()
                 plot([pos-width, pos+width], [m, m], '--', color=color, **kwargs)
 
+    def trunc(self, a, b):
+        return TruncDistr(self, a, b)
+    def censor(self, a, b):
+        return CensoredDistr(self, a, b)
     def __call__(self, x):
         """Overload function calls."""
         return self.pdf(x)
@@ -556,6 +559,62 @@ class OpDistr(Distr):
             cache[self.id()] = self.rand_op(n, cache)
         return cache[self.id()]
 
+
+class TruncDistr(TruncRV, OpDistr):
+    def __init__(self, d, a, b, sym = None):
+        super(TruncDistr, self).__init__(d, a, b, sym=sym)
+    def init_piecewise_pdf(self):
+        self.piecewise_pdf = self.d.get_piecewise_pdf().truncate(self.a, self.b)
+    def pdf(self, x):
+        if isscalar(x):
+            if x < self.a or x > self.b:
+                y = 0
+            else:
+                y = self.d.pdf(x) / (self.d.cdf(self.b) - self.d.cdf(self.a))
+        else:
+            y = zeros_like(asarray(x, dtype=float))
+            mask = (self.a <= x) & (x <= self.b)
+            y[mask] = self.d.pdf(x[mask]) / (self.d.cdf(self.b) - self.d.cdf(self.a))
+        return y
+
+    def rand_op(self, n, cache):
+        samples = []
+        for i in range(n):
+            num = self.d.rand(1, cache)
+            while num > self.b or num < self.a:
+                num = self.d.rand(1, cache)
+            samples.append(*num)
+        return array(samples)
+
+class CensoredDistr(CensoredRV, OpDistr):
+    def __init__(self, d, a, b, sym = None):
+        super(CensoredDistr, self).__init__(d, a, b, sym=sym)
+
+    def pdf(self, x):
+        if isscalar(x):
+            if self.censor_a <= x <= self.censor_b:
+                y = self.d.pdf(x)
+            else:
+                y = 0
+        else:
+            y = zeros_like(asarray(x, dtype=float))
+            mask = (self.censor_a <= x) & (x <= self.censor_b)
+            y[mask] = self.d.pdf(x[mask])
+        return y
+
+    def init_piecewise_pdf(self):
+        self.piecewise_pdf = self.d.get_piecewise_pdf().censor(self.censor_a, self.censor_b)
+    def rand_op(self, n, cache):
+        samples = []
+        for i in range(n):
+            num = self.d.rand(1, cache)
+            if num > self.censor_b:
+                num[0] = self.censor_b
+            if num < self.censor_a:
+                num[0] = self.censor_a
+            samples.append(*num)
+        return array(samples)
+
 class FuncDistr(FuncRV, OpDistr):
     """Injective function of random variable"""
     def __init__(self, d, pole_at_zero = False, fname = "f", sym = None):
@@ -673,7 +732,7 @@ class AtanDistr(FuncDistr):
                 y = numpy.tan(x)
         else:
             mask = (x > -pi/2) & (x < pi/2)
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             y[mask] = numpy.tan(x[mask])
         return y
     def f_inv_deriv(self, x):
@@ -684,7 +743,7 @@ class AtanDistr(FuncDistr):
                 y = 1 + numpy.tan(x)**2
         else:
             mask = (x > -pi/2) & (x < pi/2)
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             y[mask] = 1 + numpy.tan(x[mask])**2
         return y
 
@@ -711,7 +770,7 @@ class TanhDistr(FuncDistr):
                 y = 0.5 * numpy.log((1.0+x) / (1.0-x))
         else:
             mask = (x > -1) & (x < 1)
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             y[mask] = 0.5 * numpy.log((1.0+x[mask]) / (1.0-x[mask]))
         return y
     def f_inv_deriv(self, x):
@@ -722,7 +781,7 @@ class TanhDistr(FuncDistr):
                 y = 1.0 / (1 - x**2)
         else:
             mask = (x > -1) & (x < 1)
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             y[mask] = 1.0 / (1 - x[mask]**2)
         return y
 
@@ -748,7 +807,7 @@ class SigmoidDistr(FuncDistr):
                 ex = numpy.exp(x)
                 y =  ex / (ex + 1.0)
         else:
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             mask = (x > 0)
             y[mask] = 1.0 / (1.0 + numpy.exp(-x[mask]))
             ex = numpy.exp(x[~mask])
@@ -762,7 +821,7 @@ class SigmoidDistr(FuncDistr):
                 y = numpy.log(x / (1.0-x))
         else:
             mask = (x > -1) & (x < 1)
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             y[mask] = numpy.log(x[mask] / (1.0-x[mask]))
         return y
     def f_inv_deriv(self, x):
@@ -773,7 +832,7 @@ class SigmoidDistr(FuncDistr):
                 y = 1.0 / (x*(1 - x))
         else:
             mask = (x > -1) & (x < 1)
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             y[mask] = 1.0 / (x[mask] * (1 - x[mask]))
         return y
 
@@ -781,17 +840,17 @@ def sigmoid(d):
     """Overload the tanh function."""
     if isinstance(d, Distr):
         return SigmoidDistr(d)
-    if isscalar(x):
-        if x > 0:
-            y = 1.0 / (1.0 + numpy.exp(-x))
+    if isscalar(d):
+        if d > 0:
+            y = 1.0 / (1.0 + numpy.exp(-d))
         else:
-            ex = numpy.exp(x)
+            ex = numpy.exp(d)
             y =  ex / (ex + 1.0)
     else:
-        y = zeros_like(asfarray(x))
-        mask = (x > 0)
-        y[mask] = 1.0 / (1.0 + numpy.exp(-x[mask]))
-        ex = numpy.exp(x[~mask])
+        y = zeros_like(asarray(d, dtype=float))
+        mask = (d > 0)
+        y[mask] = 1.0 / (1.0 + numpy.exp(-d[mask]))
+        ex = numpy.exp(d[~mask])
         y[~mask] = ex / (ex + 1.0)
     return y
 
@@ -805,7 +864,7 @@ class InvDistr(InvRV, OpDistr):
         if isscalar(x):
             y = self.d.pdf(1.0/x)/x**2
         else:
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             mask = x != 0
             y[mask] = y = self.d.pdf(1.0/x[mask])/x[mask]**2
         return y
@@ -817,10 +876,10 @@ class InvDistr(InvRV, OpDistr):
             if x != 0:
                 y = 1.0 / x
             else:
-                y = Inf # TODO: put nan here
+                y = inf # TODO: put nan here
         else:
             mask = (x != 0.0)
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             y[mask] = 1.0 / x[mask]  # to powoduje bledy w odwrotnosci
             #y = 1.0 / x
         return y
@@ -830,7 +889,7 @@ class InvDistr(InvRV, OpDistr):
             y = 1/x**2
         else:
             mask = (x != 0.0)
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             y[mask] = 1/(x[mask])**2
         return y
     def init_piecewise_pdf(self):
@@ -850,7 +909,7 @@ class PowDistr(PowRV, OpDistr):
         if isscalar(x):
             y = self.d.pdf(1.0/x)/x**2
         else:
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             mask = x != 0
             y[mask] = y = self.d.pdf(1.0/x[mask])/x[mask]**2
         return y
@@ -868,7 +927,7 @@ class PowDistr(PowRV, OpDistr):
                 y = 0 # TODO: put nan here
         else:
             mask = (x != 0.0)
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             y[mask] = x[mask] ** (self.alpha)
         return y
     def f_inv(self, x):
@@ -879,7 +938,7 @@ class PowDistr(PowRV, OpDistr):
                 y = 0 # TODO: put nan here
         else:
             mask = (x != 0.0)
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             y[mask] = x[mask] ** self.alpha_inv
         return y
     def f_inv_deriv(self, x):
@@ -887,7 +946,7 @@ class PowDistr(PowRV, OpDistr):
             y = self.alpha_inv * x ** self.exp_deriv
         else:
             mask = (x != 0.0)
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             y[mask] = self.alpha_inv * x ** self.exp_deriv
         return y
 
@@ -905,7 +964,7 @@ class AbsDistr(OpDistr):
             else:
                 y = self.d.pdf(-x) + self.d.pdf(x)
         else:
-            y = zeros_like(asfarray(x))
+            y = zeros_like(asarray(x, dtype=float))
             mask = x >= 0
             y[mask] = self.d.pdf(-x[mask]) + self.d.pdf(x[mask])
         return y
@@ -989,7 +1048,7 @@ class FuncNoninjectiveDistr(OpDistr):
 class Sq2Distr(FuncNoninjectiveDistr):
     """Exponent of a random variable"""
     def __init__(self, d):
-        self.intervals = [[-Inf, 0], [0, +Inf]]
+        self.intervals = [[-inf, 0], [0, +inf]]
         self.fs = [lambda x: x**2, lambda x: x**2]
         self.f_invs = [lambda x: x**0.5,lambda x: -x**0.5]
         self.f_inv_derivs = [lambda x: 0.5*x**(-0.5),lambda x: -0.5*x**(-0.5)]
